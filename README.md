@@ -1,0 +1,1 @@
+Bu terminalde oynanabilen ve amiral battıya benzer bir koordinat sistemi taşıyan bir minesweeper oyunudur. Bazı eksikleri var ama büyük değiller diye düzeltmedim. Kazanmak için tüm kareler dolu olmalı (flag dahil) ve 0 lara basınca diğer 0 larda açılmıyor.
