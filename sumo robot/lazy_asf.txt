@@ -1,0 +1,105 @@
+import pygame, sys, time, math
+pygame.init()
+from pygame.math import Vector2
+
+SCREEN_W = 800
+SCREEN_H = 800
+CENTER = Vector2(SCREEN_W / 2, SCREEN_H / 2)
+
+screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+run = True
+
+class player(pygame.sprite.Sprite):
+    def __init__(self, pos, size, groups):
+        super().__init__(groups)
+        self.image = pygame.Surface(size)
+        self.image.fill('blue')
+        self.rect = self.image.get_rect(topleft=pos)
+
+class robot(pygame.sprite.Sprite):
+    def __init__(self, pos, size, groups):
+        super().__init__(groups)
+        self.image = pygame.Surface(size)
+        self.image.fill('red')
+        self.rect = self.image.get_rect(topleft=pos)
+
+sprites = pygame.sprite.Group()
+player = player((100, 100), (50, 50), sprites)
+robot = robot((600, 600), (50, 50), sprites)
+robot.remove(sprites)  #skin taktım robota işte
+
+clock = pygame.time.Clock()
+spd = 150
+push_spd = spd
+robot_spd = spd
+
+
+def turn_right():                        #reddit
+    global robot_angle
+    robot_angle = (robot_angle + 45) % 360
+
+def turn_left():
+    global robot_angle
+    robot_angle = (robot_angle - 45) % 360
+
+# loop
+last_time = time.time()
+while run == True:
+    #tick spd+dt+quit
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            run = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_e:
+                turn_right()
+            if event.key == pygame.K_q:
+                turn_left()
+
+    #dt tut
+    dt = time.time() - last_time
+    last_time = time.time()
+
+
+
+    screen.fill((0, 0, 0))
+
+    pygame.draw.circle(screen, 'white', CENTER, SCREEN_W / 2, 3)
+
+    #prev positions
+    previous_player = player.rect.copy()
+    previous_bot = robot.rect.copy()
+    sprites.draw(screen)
+
+     # NEW: front of the bot = direction toward the player
+    robot_front = Vector2(player.rect.center) - Vector2(robot.rect.center)
+    if robot_front.length() > 0:
+        robot_front = robot_front.normalize()
+    else:
+        robot_front = Vector2(0, -1)
+    robot_side = Vector2(-robot_front.y, robot_front.x)
+    c = Vector2(robot.rect.center)
+    front_point = c + robot_front * 30
+    back_left = c - robot_front * 20 + robot_side * 22
+    back_right = c - robot_front * 20 - robot_side * 22
+    pygame.draw.polygon(screen, 'red', [front_point, back_left, back_right])
+
+    #movement
+    keys = pygame.key.get_pressed()
+    direction = Vector2(keys[pygame.K_d] - keys[pygame.K_a],
+                        keys[pygame.K_s] - keys[pygame.K_w])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Yalan yok deli üşendim bu hafta baya işim var kodun 60% si falan daha yazılmamış str kullanıyor bakma bence

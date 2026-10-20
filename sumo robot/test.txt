@@ -1,0 +1,237 @@
+import pygame
+pygame.init()
+
+
+SCREEN_W = 800
+SCREEN_H = 800
+
+
+
+screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))   # ekran yazdırma işlerini tutorialdan aldım (beni asma yaman)
+run = True
+
+
+player = pygame.Rect(100, 400, 50, 50)
+bot = pygame.Rect(700, 400, 50, 50)
+
+
+clock = pygame.time.Clock()  # tick spd için (işe yaramasını yeminle beklemiyordum öylesine denedim bir functionu)
+player_x, player_y = player.topleft
+bot_x, bot_y = bot.topleft  # botun gerçek konumu (tutmak için)
+spd = 150
+push_spd = spd  # spd / 200 = 1 çok azdı gram hareket yoktu bende belirli bir spd değeri koydum
+bot_spd = spd + 50  #hızı bizimkinden fazla yani bota her türlü kaybetcen hehe (player sırf test için var ztn)
+
+
+
+
+
+# botun gidebileceği 4 yön ve her yönün tersi
+DS = {"ust": (0, -1), "alt": (0, 1), "sol": (-1, 0), "sag": (1, 0)}
+ARKA = {"ust": "alt", "alt": "ust", "sol": "sag", "sag": "sol"}
+bot_yon = "sol"  #botun şu an baktığı yön (başta oyuncuya doğru) + bide eklemek gerekirse ben bunları ilk baş harflerini yazdıydım pişman oldum kodun devamında ç-ç
+
+
+
+
+RNG = 200  # sensörler kaç piksel görecek o
+EDGE = 50  # ekran kenara bu kadar yaklaşınca dönsü (killbrick benzeri bir şey yazamadım ai yazsın diyincede satır limitini geçti)
+
+
+
+
+def sensor_mesafe(begin, yon):                                          # SENSÖR KISMI!!!!!
+    begin = pygame.Vector2(begin)                                       # görmezse dönüyo o burada
+    end = begin + pygame.Vector2(yon) * RNG 
+    kesim = player.clipline(begin, end)  # çizgi oyuncunun hitboxuna değiyor mu? bide end.. haha...end update... deliriyorum
+    if kesim:
+        return begin.distance_to(pygame.Vector2(kesim[0]))   #kesim kesişim
+    return RNG
+
+
+
+
+def sensor_oku():
+    sol_x = bot.left + 10
+    sag_x = bot.right - 10
+    ust_y = bot.top + 10
+    alt_y = bot.bottom - 10
+    return {
+        "ust": (sensor_mesafe((sol_x, bot.top), DS["ust"]),   #DS = Directions kısaltma
+                sensor_mesafe((sag_x, bot.top), DS["ust"])),        #karışık olmasın diye ikişerli yazdım iki dil
+        "alt": (sensor_mesafe((sol_x, bot.bottom), DS["alt"]),
+                sensor_mesafe((sag_x, bot.bottom), DS["alt"])),
+        "sol": (sensor_mesafe((bot.left, ust_y), DS["sol"]),
+                sensor_mesafe((bot.left, alt_y), DS["sol"])),
+        "sag": (sensor_mesafe((bot.right, ust_y), DS["sag"]),
+                sensor_mesafe((bot.right, alt_y), DS["sag"])),
+    }
+
+
+
+
+
+def edge_oku():
+    return {                # mesafe edge
+        "sol": bot.left,
+        "sag": SCREEN_W - bot.right,
+        "ust": bot.top,
+        "alt": SCREEN_H - bot.bottom,
+    }           #şu süslü parantez bana olan en iyi şey rastgele bir pygame tutorialdan gördüm bunların açılıp kapalabileceğini
+                                    # + NOT DEF DE BUNU YAPIYOMUŞ YA ABİ KÖRÜM BEN BU KODU FUNCTION OLARAK KULLANIYOM SIRF
+
+
+
+
+
+while run:
+    screen.fill((0, 0, 0))  # tüm harita kırmızı mavi olmasın diye
+
+    dt = clock.tick(60) / 1000  # tick spd ama tekrarlanıyorun içinde
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            run = False
+
+
+
+
+
+    previous_player = player.copy() #bu iki satır bana acı verdi hareketten önce yazmam gerekiyormuş ai sayabilirsin fix attırttım (vscode içi copilot) (beni asma indirmeye üşenyiorum yapay zekaları copilot vardı default)
+    previous_bot = bot.copy()
+
+
+
+
+
+    key = pygame.key.get_pressed()
+    dx = key[pygame.K_d] - key[pygame.K_a]
+    dy = key[pygame.K_s] - key[pygame.K_w]
+
+
+
+
+
+    direct = pygame.Vector2(dx, dy)
+    if direct.length_squared() > 0:  # abi koda geri bakıyorumda harbi prompt yazmayı öğrenmem gerekecek bana 0.10 yaz diyodu ai bir hayır vermedi 3 saat video izledim sırf bunun için ç-ç
+        direct.normalize_ip()
+        player_x += direct.x * spd * dt
+        player_y += direct.y * spd * dt
+        player.topleft = (round(player_x), round(player_y)) 
+
+   
+   
+
+    sens = sensor_oku()     #bot şahısımızın beyni (binevi)
+    EDGE_D = edge_oku()     #fix 2 (claude)
+
+
+
+
+
+
+    detects = [bot_yon] + [y for y in DS if y != bot_yon and y != ARKA[bot_yon]]        #ön ve yanlar, arkada sensör olur mu bilemedim ama arka yok balancing için
+    for yon in detects:
+        if min(sens[yon]) < RNG:
+            bot_yon = yon
+            break
+    # kimseyi görmediyse bot yön değişmiyo yani düz gitmeye devam ediyo dönmesini denerken alt üste bir kaç kez bozdum o başka bir günün konusu artık
+
+    
+    
+    #ekran sınırından uzak dur
+    kacgit = []
+    if EDGE_D["sol"] < EDGE:
+        kacgit.append("sag")
+    if EDGE_D["sag"] < EDGE:
+        kacgit.append("sol")
+    if EDGE_D["ust"] < EDGE:
+        kacgit.append("alt")
+    if EDGE_D["alt"] < EDGE:               #claude bugfix bide burayı yaptı iki farklı yere aynı EDGE eklemişim keşke problems de gösterse
+        kacgit.append("ust")
+    if kacgit and bot_yon not in kacgit:   # ağlıcam edge yazınca sol değil left yazdım 3 kez
+        bot_yon = kacgit[0]                #bana isim koydurtmayın bida .d
+
+
+
+    bot_dir = pygame.Vector2(DS[bot_yon])
+    bot_x += bot_dir.x * bot_spd * dt
+    bot_y += bot_dir.y * bot_spd * dt
+    bot.topleft = (round(bot_x), round(bot_y))
+
+
+
+
+
+
+    player_motion = pygame.Vector2(                                         # bizim hareketimiz
+        player.centerx - previous_player.centerx,
+        player.centery - previous_player.centery,
+    )
+
+
+
+
+    bot_motion = pygame.Vector2(
+        bot.centerx - previous_bot.centerx,
+        bot.centery - previous_bot.centery,
+    )
+
+
+
+
+    if player.colliderect(bot):
+        toward_bot = pygame.Vector2(bot.center) - pygame.Vector2(player.center)             #col check bura
+
+        if toward_bot.length_squared() > 0:
+            toward_bot.normalize_ip()
+            player_seen = pygame.Vector2(player_motion)
+
+            if player_seen.length_squared() > 0:
+                player_seen.normalize_ip()
+
+
+
+
+
+            
+                if player_seen.dot(toward_bot) > 0:                 #col bufix için
+                    bot_x += player_seen.x * push_spd * dt
+                    bot_y += player_seen.y * push_spd * dt
+                    bot.topleft = (round(bot_x), round(bot_y))
+
+
+
+
+            bot_seen = pygame.Vector2(bot_motion) # aynı ama ters, bot da oyuncuyu itebilsin ZATEN botun itmesi lazım herhalde... abi ben niye böyle yazıyom notlarımı
+
+            if bot_seen.length_squared() > 0:
+                bot_seen.normalize_ip()
+
+                if bot_seen.dot(-toward_bot) > 0:
+                    player_x += bot_seen.x * bot_spd * dt
+                    player_y += bot_seen.y * bot_spd * dt
+                    player.topleft = (round(player_x), round(player_y))
+
+
+
+
+
+    player.clamp_ip(screen.get_rect())   # itilince ekrandan çıkmasınlar ki teste devam edebileyim
+    bot.clamp_ip(screen.get_rect())
+    player_x, player_y = player.topleft
+    bot_x, bot_y = bot.topleft
+
+
+
+    pygame.draw.rect(screen, (0, 0, 255), player)  #şakasın burda en başta yazmıştım diye hata yapmışım claude yardım etti gine kodun satırını değiştirerek
+    pygame.draw.rect(screen, (255, 0, 0), bot)
+
+
+
+    pygame.display.update()
+
+    #BUNU YAZMAK BANA DELİ ACI VERDİ HEPSİ https://www.youtube.com/watch?v=W9uKzPFS1CI&t=1306s VİDEOSUNDAKİ GİBİ YAZSAM GEÇİRMİŞ OLURUM DİYE
+    #erhm, bida similasyon yazmıcam bu kodu ctrlc ctrlv atıcam ya da AI ya yaptırcam. Abi öyle AI kodun içinde olmuyor ya ben onu fark ettim sen sumo kodu istedin similasyon opsiyonaldi POFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    #kaynakça olarak copilot fixleri atamıyorum ama virgul unuttum, bazı şeyleri yanlış yazdım falan onlar (chate aktarmamış chat gözükmüyor) ve claude sa videoda atmışımdır istersen chati de atarım abi he bide üstte yazan videomuz var
+    #kod o kadar karmaşık ki ne yapacağımı bilmiyorum
+    #yazmayı unutmuşum kodun hepsini dökumanlardan topladım hani functions ve ne yaptıkları yazıyor python.org da
